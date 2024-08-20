@@ -1,7 +1,6 @@
-import { Button } from "@/components/ui/button";
+import React from "react";
 import { useEffect, useState } from "react";
 import { io } from "socket.io-client";
-
 const socket = io("http://localhost:8000/");
 
 export interface IBlock {
@@ -13,6 +12,7 @@ export interface IBlock {
   };
   transactions: ITransaction[]; // Array of transactions
   prev: string; // Hash of the previous block
+  timestamp: number;
   hash: string; // Hash of the current block
 }
 
@@ -21,13 +21,17 @@ export interface ITransaction {
   from: string;
   to: string;
   seq: number;
+  timestamp: number;
   signature: string;
+  pre: number[];
+  post: number[];
 }
 
 const Blockchain = () => {
   const [blockchains, setBlockchains] = useState<
     {
       id: string;
+      publicKey: string;
       blockchain: { chain: IBlock[] };
     }[]
   >([]);
@@ -41,7 +45,6 @@ const Blockchain = () => {
 
     socket.on("on_going_block_chains", (data) => {
       // Check if the data is in the expected format
-      console.log(data);
       if (Array.isArray(data)) {
         setBlockchains(data);
       } else {
@@ -59,87 +62,127 @@ const Blockchain = () => {
     };
   }, []);
 
-  const createTransaction = () => {
-    const transaction = {
-      amount: Math.random() * 1000,
-      from: (Math.random() * 1000).toString(),
-      to: (Math.random() * 1000).toString(),
-      seq: 1, // Increment sequence number
-      signature:
-        "3046022100cf33ee8c696edd0b0c291a259e0a03ea2491f8febd396244e309d175bc8b6b7c022100a85b8b15e037ac42d9f2545e568d2433ede51e59f4bbfd4179f285fac1a10f66" +
-        Math.random(),
-    };
-    socket.emit("transaction", transaction);
-  };
-
-  const RenderBlockChain = ({ blockchain }: { blockchain: IBlock[] }) => {
+  const RenderBlockChain = ({
+    blockchain,
+    publicKey,
+  }: {
+    blockchain: IBlock[];
+    publicKey: string;
+  }) => {
     return (
       <div className="grid">
-        <div className="flex space-x-4 overflow-x-scroll ">
-          {blockchain.map((block, index) => (
-            <div
-              key={index}
-              className="border rounded-md p-3 bg-muted min-w-[33vh] shrink-0"
-            >
-              <div className="space-y-3">
-                <p className="flex items-center gap-2">
-                  Block:
-                  <span className="border rounded p-1 flex-1 block bg-background">
-                    {block.seq}
-                  </span>
-                </p>
-                <p className="flex items-center gap-2">
-                  Nonce:
-                  <span className="border rounded p-1 flex-1 block bg-background">
-                    {block.nonce}
-                  </span>
-                </p>
-                <div>
-                  <p>Transactions</p>
-                  {block.transactions.map((transaction, index) => (
-                    <div className="my-3" key={index}>
-                      <p className="flex items-center gap-2">
-                        SEQ:
-                        <span className="border rounded p-1 flex-1 block bg-background">
-                          {transaction.seq}
-                        </span>
-                      </p>
-                      <p className="flex items-center gap-2">
-                        amount:
-                        <span className="border rounded p-1 flex-1 block bg-background">
-                          {transaction.amount}
-                        </span>
-                      </p>{" "}
-                      <p className="flex items-center gap-2">
-                        From:
-                        <span className="border rounded p-1 flex-1 block bg-background">
-                          {transaction.from}
-                        </span>
-                      </p>
-                      <p className="flex items-center gap-2">
-                        To:
-                        <span className="border rounded p-1 flex-1 block bg-background">
-                          {transaction.to}
-                        </span>
-                      </p>
-                    </div>
-                  ))}
+        <div className="flex space-x-4 overflow-x-scroll py-4">
+          {blockchain
+            .slice()
+            .reverse()
+            .map((block, index) => (
+              <div
+                key={index}
+                className="border rounded-md p-3 bg-muted min-w-[33vh] shrink-0"
+              >
+                {block.coinbase.to === publicKey ? "Our " : `null`}
+                <br />
+                {[publicKey.slice(0, 4)]}
+                <div className="space-y-3">
+                  <p className="flex items-center gap-2">
+                    Block:
+                    <span className="border rounded p-1 flex-1 block bg-background">
+                      {block.seq}
+                    </span>
+                  </p>
+                  <p className="flex items-center gap-2">
+                    Coinbase:
+                    <span className="border rounded p-1  block bg-background">
+                      {block.coinbase.amount}
+                    </span>
+                    <span className="border rounded p-1 flex-1 block bg-background">
+                      {block.coinbase.to}
+                    </span>
+                  </p>
+                  <p className="flex items-center gap-2">
+                    Nonce:
+                    <span className="border rounded p-1 flex-1 block bg-background">
+                      {block.nonce}
+                    </span>
+                  </p>
+                  <p className="flex items-center gap-2">
+                    At:
+                    <span className="border rounded p-1 flex-1 block bg-background">
+                      {new Date(block.timestamp).toLocaleDateString()}
+                    </span>
+                  </p>
+                  <div>
+                    <p>Transactions</p>
+                    {block.transactions.map((transaction, index) => (
+                      <div className="my-3" key={index}>
+                        <p className="flex items-center gap-2">
+                          SEQ:
+                          <span className="border rounded p-1 flex-1 block bg-background">
+                            {transaction.seq}
+                          </span>
+                        </p>
+                        <p className="flex items-center gap-2">
+                          amount:
+                          <span className="border rounded p-1 flex-1 block bg-background">
+                            {transaction.amount}
+                          </span>
+                        </p>{" "}
+                        <p className="flex items-center gap-2">
+                          From:
+                          <span className="border rounded p-1 flex-1 block bg-background">
+                            {transaction.from}
+                          </span>
+                        </p>
+                        <p className="flex items-center gap-2">
+                          To:
+                          <span className="border rounded p-1 flex-1 block bg-background">
+                            {transaction.to}
+                          </span>
+                        </p>
+                        <p className="flex items-center gap-2">
+                          At:
+                          <span className="border rounded p-1 flex-1 block bg-background">
+                            {new Date(
+                              transaction.timestamp
+                            ).toLocaleDateString()}
+                          </span>
+                        </p>
+                        <p className="flex items-center gap-2">
+                          Sender:
+                          <span className="border rounded p-1 flex-1 block bg-background">
+                            {transaction.pre[0]}
+                          </span>
+                          <span className="border rounded p-1 flex-1 block bg-background">
+                            {transaction.post[0]}
+                          </span>
+                        </p>
+                        <p className="flex items-center gap-2">
+                          Receiver:
+                          <span className="border rounded p-1 flex-1 block bg-background">
+                            {transaction.pre[1]}
+                          </span>
+                          <span className="border rounded p-1 flex-1 block bg-background">
+                            {transaction.post[1]}
+                          </span>
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="flex items-center gap-2">
+                    Prev:
+                    <span className="border rounded p-1 flex-1 block bg-background">
+                      {block.prev}
+                    </span>
+                  </p>
+                  <p className="flex items-center gap-2">
+                    Hash:
+                    <span className="border rounded p-1 flex-1 block bg-background">
+                      {block.hash}
+                    </span>
+                  </p>
                 </div>
-                <p className="flex items-center gap-2">
-                  Prev:
-                  <span className="border rounded p-1 flex-1 block bg-background">
-                    {block.prev}
-                  </span>
-                </p>
-                <p className="flex items-center gap-2">
-                  Hash:
-                  <span className="border rounded p-1 flex-1 block bg-background">
-                    {block.hash}
-                  </span>
-                </p>
               </div>
-            </div>
-          ))}
+            ))}
         </div>
       </div>
     );
@@ -148,7 +191,6 @@ const Blockchain = () => {
   return (
     <div className="container md:mt-12 mt-6">
       <h1 className="text-lg font-bold">Live Blockchain</h1>
-      <Button onClick={createTransaction}>Create Transaction</Button>
       <div className="grid gap-12 mt-12">
         {blockchains.map((item, index: number) => (
           <div key={index}>
@@ -158,7 +200,10 @@ const Blockchain = () => {
               Block length : {item.blockchain.chain.length}
             </h2>
             {Array.isArray(item.blockchain.chain) ? (
-              <RenderBlockChain blockchain={item.blockchain.chain} />
+              <RenderBlockChain
+                blockchain={item.blockchain.chain}
+                publicKey={item.publicKey}
+              />
             ) : (
               <p>Error: Blockchain data is not an array.</p>
             )}

@@ -1,18 +1,29 @@
 import crypto from "crypto";
-import { broadCastBlock, getMeBlockchain, sendUpdateBlockChainToServer, } from "./index.js";
+import { broadCastBlock, getMeBlockchain, MY_ACCOUNT, sendUpdateBlockChainToServer, } from "./index.js";
 import { Mutex } from "async-mutex";
+import nacl from "tweetnacl";
+import pkg from "tweetnacl-util";
+const { decodeUTF8 } = pkg;
+import bs58 from "bs58";
+import { PublicKey } from "@solana/web3.js";
 export class Transaction {
     amount;
     from;
     to;
     seq;
     signature;
-    constructor({ amount, from, to, seq, signature }) {
+    timestamp;
+    pre;
+    post;
+    constructor({ amount, from, to, seq, signature, timestamp, pre, post, }) {
         this.amount = amount;
         this.from = from;
         this.to = to;
         this.seq = seq;
         this.signature = signature;
+        this.timestamp = timestamp;
+        this.pre = pre;
+        this.post = post;
     }
 }
 export class Block {
@@ -22,6 +33,7 @@ export class Block {
     transactions; // Fixed type from Block[] to Transaction[]
     prev;
     hash;
+    timestamp;
     constructor({ seq, coinbase, transactions, prev, hash = "", nonce = 0, }) {
         this.seq = seq;
         this.nonce = nonce;
@@ -29,22 +41,27 @@ export class Block {
         this.transactions = transactions;
         this.prev = prev;
         this.hash = hash;
+        this.timestamp = Date.now();
     }
     addTransaction(transaction) {
-        this.transactions.push(transaction);
-    }
-    printTransactions() {
-        this.transactions.forEach((transaction) => {
-            console.log(transaction);
-        });
+        const newTransaction = new Transaction(transaction);
+        newTransaction.timestamp = Date.now();
+        this.transactions.push(newTransaction);
     }
     calculateHash() {
-        const blockData = `${this.seq}${this.nonce}${JSON.stringify(this.coinbase)}${JSON.stringify(this.transactions)}${this.prev}`;
+        const blockData = JSON.stringify(this);
         return crypto.createHash("sha256").update(blockData).digest("hex");
     }
-    mineBlock() {
-        const target = "000";
-        while (this.hash.substring(0, 3) !== target) {
+    async mineBlock() {
+        const target = "0000";
+        const delay = Math.random() * 10;
+        // just a normal delay to put any miner behind
+        await new Promise((res) => {
+            setTimeout(() => {
+                res();
+            }, delay * 1000);
+        });
+        while (this.hash.substring(0, 4) !== target) {
             this.nonce++;
             this.hash = this.calculateHash();
         }
@@ -65,76 +82,216 @@ export class Blockchain {
         this.chain = [
             new Block({
                 seq: 0,
-                coinbase: { amount: 50, to: "genesisMiner" },
+                coinbase: { amount: 10, to: MY_ACCOUNT.publicKey },
                 transactions: [],
                 prev: "0000000000000000000000000000000000000000", // Ensure the previous hash is of correct length
             }),
         ];
     }
-    addTransaction(transaction) {
+    async addTransaction(transaction) {
         const latestBlock = this.getLatestBlock();
-        if (latestBlock.transactions.length < 2 && !latestBlock.hash) {
-            latestBlock.addTransaction(transaction);
+        const validatedTransaction = this.validateTransaction(transaction);
+        if (!validatedTransaction)
+            return;
+        // Check if the block can accept more transactions
+        if (latestBlock.transactions.length < 2) {
+            latestBlock.addTransaction(validatedTransaction);
+            sendUpdateBlockChainToServer(this);
         }
-        else {
-            this.addBlock(new Block({
+        // Mine the block if it has reached the transaction limit
+        if (latestBlock.transactions.length === 2) {
+            await latestBlock.mineBlock();
+            await this.addBlock(new Block({
                 seq: latestBlock.seq + 1,
-                coinbase: { amount: 50, to: "genesisMiner" },
-                transactions: [transaction],
+                coinbase: { amount: 10, to: MY_ACCOUNT.publicKey },
+                transactions: [],
                 prev: latestBlock.hash,
             }));
         }
     }
     async addBlock(newBlock) {
         const latestBlock = this.getLatestBlock();
-        if (process.env.PORT === `3000`) {
-            // return;
-            await new Promise((res) => {
-                setTimeout(() => {
-                    console.log(`Server delay simulated`);
-                    res();
-                }, 3000);
-            });
-        }
-        latestBlock.mineBlock();
-        newBlock.prev = latestBlock.hash;
-        if (latestBlock.hash) {
+        if (latestBlock.hash && latestBlock.transactions.length === 2) {
             await this.putBlockToChain(newBlock, true);
         }
     }
-    async putBlockToChain(block, broadcast = false) {
-        // await this.mutex.runExclusive(async () => {
+    async putBlockToChain(block, broadcast = false, requestAllowed = true) {
         const latestBlock = this.getLatestBlock();
-        console.log(this.chain.length, `from head`);
         // If the latest block's hash matches the new block's previous hash
         if (latestBlock.hash === block.prev) {
+            block.seq = latestBlock.seq + 1;
             this.chain.push(block);
             if (broadcast) {
-                broadCastBlock(block);
-                console.log(`Block broadcasted successfully.`);
+                broadCastBlock(latestBlock);
             }
         }
         else if (latestBlock.seq === block.seq && !latestBlock.hash) {
             this.chain[latestBlock.seq] = block;
+            if (block.transactions.length === 2) {
+                this.chain.push(new Block({
+                    seq: block.seq + 1,
+                    coinbase: { amount: 10, to: MY_ACCOUNT.publicKey },
+                    transactions: [],
+                    prev: block.hash,
+                }));
+            }
         }
-        // If the new block's sequence number is ahead, request the blockchain data
         else if (latestBlock.seq < block.seq) {
-            console.log(latestBlock.seq, block.seq);
-            getMeBlockchain();
+            if (requestAllowed) {
+                getMeBlockchain();
+            }
+            else {
+            }
         }
-        console.log(this.chain.length);
         sendUpdateBlockChainToServer(this);
     }
     // Validate and add a block from the network
-    async validateAndAddBlock(data) {
+    async validateAndAddBlock(data, requestAllowed = true) {
         const newBlock = new Block(data);
-        // console.log(`bhai hame to yeh ha `, this.getLatestBlock().seq);
-        await this.putBlockToChain(newBlock, false);
+        await this.putBlockToChain(newBlock, false, requestAllowed);
     }
     getLatestBlock() {
         return this.chain[this.chain.length - 1];
     }
-    directAddBlock(block) {
-        this.chain.push(block);
+    validateTransaction(userTransaction) {
+        try {
+            const blocks = [...this.chain];
+            blocks.reverse();
+            const isCorrectSignature = nacl.sign.detached.verify(decodeUTF8(JSON.stringify({
+                amount: userTransaction.amount,
+                from: userTransaction.from,
+                to: userTransaction.to,
+                timestamp: userTransaction.timestamp,
+            })), bs58.decode(userTransaction.signature), new PublicKey(userTransaction.from).toBytes());
+            if (userTransaction.from === userTransaction.to)
+                return null;
+            if (!isCorrectSignature)
+                null;
+            if (blocks.length === 1 && blocks[0].transactions.length === 0) {
+                userTransaction.seq = 1;
+                userTransaction.pre = [1000_000_000, 0];
+                userTransaction.post = [1000_000_000 - 100, 100];
+                return userTransaction;
+            }
+            let sendPreBalance = null;
+            let reciverPreBalance = null;
+            let seq = null;
+            for (const block of blocks) {
+                const transactions = [...block.transactions];
+                transactions.reverse();
+                for (const transaction of transactions) {
+                    if (!seq) {
+                        seq = transaction.seq;
+                    }
+                    if (!sendPreBalance) {
+                        if (transaction.to === userTransaction.from) {
+                            sendPreBalance = transaction.post[1];
+                        }
+                        else if (transaction.from === userTransaction.from) {
+                            sendPreBalance = transaction.post[0];
+                        }
+                    }
+                    else {
+                    }
+                    if (!reciverPreBalance) {
+                        if (transaction.to === userTransaction.to) {
+                            reciverPreBalance = transaction.post[1];
+                        }
+                        else if (transaction.from === userTransaction.to) {
+                            reciverPreBalance = transaction.post[0];
+                        }
+                    }
+                    else {
+                    }
+                    if (sendPreBalance && reciverPreBalance) {
+                        break;
+                    }
+                }
+                if (sendPreBalance && reciverPreBalance) {
+                    break;
+                }
+            }
+            if (!seq)
+                return null;
+            if (sendPreBalance && sendPreBalance > userTransaction.amount) {
+                userTransaction.pre = [sendPreBalance, reciverPreBalance || 0];
+                userTransaction.seq = seq;
+                userTransaction.post = [
+                    sendPreBalance - userTransaction.amount,
+                    (reciverPreBalance || 0) + userTransaction.amount,
+                ];
+                return userTransaction;
+            }
+            else {
+            }
+            return null;
+        }
+        catch (error) {
+            return null;
+        }
+    }
+    getBalance(publicKey) {
+        try {
+            let balance = null;
+            const blocks = [...this.chain];
+            blocks.reverse();
+            for (const block of blocks) {
+                const transactions = [...block.transactions].reverse();
+                for (const transaction of transactions) {
+                    if (balance)
+                        break;
+                    if (transaction.to === publicKey) {
+                        balance = transaction.post[1];
+                    }
+                    else if (transaction.from === publicKey) {
+                        balance = transaction.post[0];
+                    }
+                }
+            }
+            if (balance) {
+                return balance;
+            }
+            else
+                return 0;
+        }
+        catch (e) {
+            return 0;
+        }
+    }
+    getTransactionBySignature(signature) {
+        try {
+            const blocks = [...this.chain];
+            blocks.reverse();
+            for (const block of blocks) {
+                for (const transaction of block.transactions) {
+                    if (transaction.signature === signature) {
+                        return transaction;
+                    }
+                }
+            }
+            return null;
+        }
+        catch (e) {
+            return null;
+        }
+    }
+    getUserTransaction(publicKey) {
+        try {
+            const userTransactions = [];
+            const blocks = [...this.chain];
+            blocks.reverse();
+            for (const block of blocks) {
+                const transactions = [...block.transactions].reverse();
+                for (const transaction of transactions) {
+                    if (transaction.from === publicKey || transaction.to === publicKey) {
+                        userTransactions.push(transaction);
+                    }
+                }
+            }
+            return userTransactions;
+        }
+        catch (e) {
+            return [];
+        }
     }
 }

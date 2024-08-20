@@ -2,16 +2,25 @@ import crypto from "crypto";
 import {
   broadCastBlock,
   getMeBlockchain,
+  MY_ACCOUNT,
   sendUpdateBlockChainToServer,
 } from "./index.js";
 import { Mutex } from "async-mutex";
+import nacl from "tweetnacl";
+import pkg from "tweetnacl-util";
+const { decodeUTF8 } = pkg;
+import bs58 from "bs58";
+import { PublicKey } from "@solana/web3.js";
 
 export interface ITransaction {
   amount: number;
   from: string;
   to: string;
   seq: number;
+  timestamp: number;
   signature: string;
+  pre: number[];
+  post: number[];
 }
 
 export class Transaction implements ITransaction {
@@ -20,13 +29,27 @@ export class Transaction implements ITransaction {
   to: string;
   seq: number;
   signature: string;
-
-  constructor({ amount, from, to, seq, signature }: ITransaction) {
+  timestamp: number;
+  pre: number[];
+  post: number[];
+  constructor({
+    amount,
+    from,
+    to,
+    seq,
+    signature,
+    timestamp,
+    pre,
+    post,
+  }: ITransaction) {
     this.amount = amount;
     this.from = from;
     this.to = to;
     this.seq = seq;
     this.signature = signature;
+    this.timestamp = timestamp;
+    this.pre = pre;
+    this.post = post;
   }
 }
 
@@ -40,6 +63,7 @@ export class Block {
   transactions: Transaction[]; // Fixed type from Block[] to Transaction[]
   prev: string;
   hash: string;
+  timestamp: number;
 
   constructor({
     seq,
@@ -62,27 +86,30 @@ export class Block {
     this.transactions = transactions;
     this.prev = prev;
     this.hash = hash;
+    this.timestamp = Date.now();
   }
 
   addTransaction(transaction: Transaction) {
-    this.transactions.push(transaction);
+    const newTransaction = new Transaction(transaction);
+    newTransaction.timestamp = Date.now();
+    this.transactions.push(newTransaction);
   }
 
-  printTransactions() {
-    this.transactions.forEach((transaction) => {
-      console.log(transaction);
-    });
-  }
   calculateHash(): string {
-    const blockData = `${this.seq}${this.nonce}${JSON.stringify(
-      this.coinbase
-    )}${JSON.stringify(this.transactions)}${this.prev}`;
+    const blockData = JSON.stringify(this);
     return crypto.createHash("sha256").update(blockData).digest("hex");
   }
 
-  mineBlock() {
-    const target = "000";
-    while (this.hash.substring(0, 3) !== target) {
+  async mineBlock() {
+    const target = "0000";
+    const delay = Math.random() * 10;
+    // just a normal delay to put any miner behind
+    await new Promise<void>((res) => {
+      setTimeout(() => {
+        res();
+      }, delay * 1000);
+    });
+    while (this.hash.substring(0, 4) !== target) {
       this.nonce++;
       this.hash = this.calculateHash();
     }
@@ -106,23 +133,32 @@ export class Blockchain {
     this.chain = [
       new Block({
         seq: 0,
-        coinbase: { amount: 50, to: "genesisMiner" },
+        coinbase: { amount: 10, to: MY_ACCOUNT.publicKey },
         transactions: [],
         prev: "0000000000000000000000000000000000000000", // Ensure the previous hash is of correct length
       }),
     ];
   }
 
-  addTransaction(transaction: Transaction) {
+  async addTransaction(transaction: Transaction) {
     const latestBlock = this.getLatestBlock();
-    if (latestBlock.transactions.length < 2 && !latestBlock.hash) {
-      latestBlock.addTransaction(transaction);
-    } else {
-      this.addBlock(
+    const validatedTransaction = this.validateTransaction(transaction);
+    if (!validatedTransaction) return;
+
+    // Check if the block can accept more transactions
+    if (latestBlock.transactions.length < 2) {
+      latestBlock.addTransaction(validatedTransaction);
+      sendUpdateBlockChainToServer(this);
+    }
+
+    // Mine the block if it has reached the transaction limit
+    if (latestBlock.transactions.length === 2) {
+      await latestBlock.mineBlock();
+      await this.addBlock(
         new Block({
           seq: latestBlock.seq + 1,
-          coinbase: { amount: 50, to: "genesisMiner" },
-          transactions: [transaction],
+          coinbase: { amount: 10, to: MY_ACCOUNT.publicKey },
+          transactions: [],
           prev: latestBlock.hash,
         })
       );
@@ -130,57 +166,188 @@ export class Blockchain {
   }
   async addBlock(newBlock: Block) {
     const latestBlock = this.getLatestBlock();
-
-    if (process.env.PORT === `3000`) {
-      // return;
-      await new Promise<void>((res) => {
-        setTimeout(() => {
-          console.log(`Server delay simulated`);
-          res();
-        }, 3000);
-      });
-    }
-    latestBlock.mineBlock();
-    newBlock.prev = latestBlock.hash;
-    if (latestBlock.hash) {
+    if (latestBlock.hash && latestBlock.transactions.length === 2) {
       await this.putBlockToChain(newBlock, true);
     }
   }
 
-  async putBlockToChain(block: Block, broadcast: boolean = false) {
-    // await this.mutex.runExclusive(async () => {
+  async putBlockToChain(
+    block: Block,
+    broadcast: boolean = false,
+    requestAllowed = true
+  ) {
     const latestBlock = this.getLatestBlock();
-    console.log(this.chain.length, `from head`);
     // If the latest block's hash matches the new block's previous hash
+
     if (latestBlock.hash === block.prev) {
+      block.seq = latestBlock.seq + 1;
       this.chain.push(block);
       if (broadcast) {
-        broadCastBlock(block);
-        console.log(`Block broadcasted successfully.`);
+        broadCastBlock(latestBlock);
       }
     } else if (latestBlock.seq === block.seq && !latestBlock.hash) {
       this.chain[latestBlock.seq] = block;
+      if (block.transactions.length === 2) {
+        this.chain.push(
+          new Block({
+            seq: block.seq + 1,
+            coinbase: { amount: 10, to: MY_ACCOUNT.publicKey },
+            transactions: [],
+            prev: block.hash,
+          })
+        );
+      }
+    } else if (latestBlock.seq < block.seq) {
+      if (requestAllowed) {
+        getMeBlockchain();
+      } else {
+      }
     }
-    // If the new block's sequence number is ahead, request the blockchain data
-    else if (latestBlock.seq < block.seq) {
-      console.log(latestBlock.seq, block.seq);
-      getMeBlockchain();
-    }
-    console.log(this.chain.length);
     sendUpdateBlockChainToServer(this);
   }
 
   // Validate and add a block from the network
-  async validateAndAddBlock(data: Block) {
+  async validateAndAddBlock(data: Block, requestAllowed = true) {
     const newBlock = new Block(data);
-    // console.log(`bhai hame to yeh ha `, this.getLatestBlock().seq);
-    await this.putBlockToChain(newBlock, false);
+    await this.putBlockToChain(newBlock, false, requestAllowed);
   }
   getLatestBlock(): Block {
     return this.chain[this.chain.length - 1];
   }
+  validateTransaction(userTransaction: Transaction): Transaction | null {
+    try {
+      const blocks = [...this.chain];
+      blocks.reverse();
+      const isCorrectSignature = nacl.sign.detached.verify(
+        decodeUTF8(
+          JSON.stringify({
+            amount: userTransaction.amount,
+            from: userTransaction.from,
+            to: userTransaction.to,
+            timestamp: userTransaction.timestamp,
+          })
+        ),
+        bs58.decode(userTransaction.signature),
+        new PublicKey(userTransaction.from).toBytes()
+      );
+      if (userTransaction.from === userTransaction.to) return null;
+      if (!isCorrectSignature) null;
+      if (blocks.length === 1 && blocks[0].transactions.length === 0) {
+        userTransaction.seq = 1;
+        userTransaction.pre = [1000_000_000, 0];
+        userTransaction.post = [1000_000_000 - 100, 100];
+        return userTransaction;
+      }
+      let sendPreBalance: null | number = null;
+      let reciverPreBalance: null | number = null;
+      let seq: null | number = null;
+      for (const block of blocks) {
+        const transactions = [...block.transactions];
+        transactions.reverse();
+        for (const transaction of transactions) {
+          if (!seq) {
+            seq = transaction.seq;
+          }
+          if (!sendPreBalance) {
+            if (transaction.to === userTransaction.from) {
+              sendPreBalance = transaction.post[1];
+            } else if (transaction.from === userTransaction.from) {
+              sendPreBalance = transaction.post[0];
+            }
+          } else {
+          }
+          if (!reciverPreBalance) {
+            if (transaction.to === userTransaction.to) {
+              reciverPreBalance = transaction.post[1];
+            } else if (transaction.from === userTransaction.to) {
+              reciverPreBalance = transaction.post[0];
+            }
+          } else {
+          }
+          if (sendPreBalance && reciverPreBalance) {
+            break;
+          }
+        }
+        if (sendPreBalance && reciverPreBalance) {
+          break;
+        }
+      }
 
-  directAddBlock(block: Block) {
-    this.chain.push(block);
+      if (!seq) return null;
+      if (sendPreBalance && sendPreBalance > userTransaction.amount) {
+        userTransaction.pre = [sendPreBalance, reciverPreBalance || 0];
+        userTransaction.seq = seq;
+
+        userTransaction.post = [
+          sendPreBalance - userTransaction.amount,
+          (reciverPreBalance || 0) + userTransaction.amount,
+        ];
+        return userTransaction;
+      } else {
+      }
+      return null;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  getBalance(publicKey: string): number {
+    try {
+      let balance: null | number = null;
+      const blocks = [...this.chain];
+      blocks.reverse();
+      for (const block of blocks) {
+        const transactions = [...block.transactions].reverse();
+        for (const transaction of transactions) {
+          if (balance) break;
+          if (transaction.to === publicKey) {
+            balance = transaction.post[1];
+          } else if (transaction.from === publicKey) {
+            balance = transaction.post[0];
+          }
+        }
+      }
+      if (balance) {
+        return balance;
+      } else return 0;
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  getTransactionBySignature(signature: string): null | Transaction {
+    try {
+      const blocks = [...this.chain];
+      blocks.reverse();
+      for (const block of blocks) {
+        for (const transaction of block.transactions) {
+          if (transaction.signature === signature) {
+            return transaction;
+          }
+        }
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  getUserTransaction(publicKey: string): Transaction[] {
+    try {
+      const userTransactions: Transaction[] = [];
+      const blocks = [...this.chain];
+      blocks.reverse();
+      for (const block of blocks) {
+        const transactions = [...block.transactions].reverse();
+        for (const transaction of transactions) {
+          if (transaction.from === publicKey || transaction.to === publicKey) {
+            userTransactions.push(transaction);
+          }
+        }
+      }
+      return userTransactions;
+    } catch (e) {
+      return [];
+    }
   }
 }
