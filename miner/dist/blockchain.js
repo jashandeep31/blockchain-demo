@@ -54,7 +54,7 @@ export class Block {
     }
     async mineBlock() {
         const target = "0000";
-        const delay = Math.random() * 10;
+        const delay = Math.random() * 2;
         // just a normal delay to put any miner behind
         await new Promise((res) => {
             setTimeout(() => {

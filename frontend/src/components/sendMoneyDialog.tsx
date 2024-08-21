@@ -64,7 +64,7 @@ const SendMoneyDialog = ({
         ),
       };
 
-      await axios.post(`http://localhost:8000/api/v1/send`, {
+      await axios.post(`${import.meta.env.VITE_SERVER_URL ?? ""}/api/v1/send`, {
         transaction,
       });
       toast.success("Transaction success", { id: toastId });
