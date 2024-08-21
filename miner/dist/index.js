@@ -6,7 +6,9 @@ import { createAccountFunction } from "./lib/utils.js";
 import { initializeSocket } from "./socket_setup.js";
 import routes from "./routes/index.js";
 import { io } from "socket.io-client";
+import dotenv from "dotenv";
 // details of the miner account where after moeny will deposited
+dotenv.config();
 export const MY_ACCOUNT = createAccountFunction();
 export const blockchain = new Blockchain();
 const socketConnection = io(process.env.SERVER_URL ?? "");

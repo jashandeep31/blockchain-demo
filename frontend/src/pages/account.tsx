@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useState } from "react";
-import.meta.env.VITE_SERVER_URL;
 import {
   Table,
   TableBody,
