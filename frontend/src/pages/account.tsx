@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-
+import.meta.env.VITE_SERVER_URL;
 import {
   Table,
   TableBody,
@@ -54,7 +54,9 @@ const Account = () => {
   const getBalance = useCallback(async () => {
     try {
       const res = await axios.get(
-        `http://localhost:8000/api/v1/balance?key=${publicKey}`
+        `${
+          import.meta.env.VITE_SERVER_URL ?? ""
+        }/api/v1/balance?key=${publicKey}`
       );
       setBalance({
         status: "done",
@@ -68,7 +70,9 @@ const Account = () => {
   const getTransactions = useCallback(async () => {
     try {
       const res = await axios.get(
-        `http://localhost:8000/api/v1/transactions?key=${publicKey}`
+        `${
+          import.meta.env.VITE_SERVER_URL ?? ""
+        }/api/v1/transactions?key=${publicKey}`
       );
       setTransactions(res.data.transactions);
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -95,7 +99,9 @@ const Account = () => {
     try {
       const publicKey = pathname.replace("/", "");
       const res = await axios.get(
-        `http://localhost:8000/api/v1/airdrop?key=${publicKey}`
+        `${
+          import.meta.env.VITE_SERVER_URL ?? ""
+        }/api/v1/airdrop?key=${publicKey}`
       );
       if (res.status === 200) {
         console.log(res.data);

@@ -10,7 +10,7 @@ import { io } from "socket.io-client";
 // details of the miner account where after moeny will deposited
 export const MY_ACCOUNT = createAccountFunction();
 export const blockchain = new Blockchain();
-const socketConnection = io("http://localhost:8000/");
+const socketConnection = io(process.env.SERVER_URL ?? "");
 export let MY_ID = "";
 
 // basic socket connection to get out MY_ID
@@ -18,6 +18,7 @@ socketConnection.on("connect", () => {
   MY_ID = socketConnection.id ? socketConnection.id : "";
   socketConnection.emit("join_miners");
   socketConnection.emit("requestBlockchain");
+  sendUpdateBlockChainToServer(blockchain);
 });
 const socket = initializeSocket(blockchain, socketConnection);
 
