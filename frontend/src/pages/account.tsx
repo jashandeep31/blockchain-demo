@@ -98,10 +98,16 @@ const Account = () => {
         `http://localhost:8000/api/v1/airdrop?key=${publicKey}`
       );
       if (res.status === 200) {
-        getBalance();
-        getTransactions();
-
-        toast.success("Done", { id: toastId });
+        console.log(res.data);
+        if (res.data.transaction) {
+          getBalance();
+          getTransactions();
+          toast.success("Done", { id: toastId });
+        } else {
+          toast.warning("Failed to record request please resend it ", {
+            id: toastId,
+          });
+        }
       }
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {

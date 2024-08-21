@@ -32,6 +32,7 @@ export function sendUpdateBlockChainToServer(blockchain: Blockchain) {
   socket.emit("myblockchain", {
     id: MY_ID,
     publicKey: MY_ACCOUNT.publicKey,
+    url: `${process.env.URL}`,
     blockchain,
   });
 }

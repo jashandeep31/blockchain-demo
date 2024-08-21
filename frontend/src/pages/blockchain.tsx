@@ -78,11 +78,12 @@ const Blockchain = () => {
             .map((block, index) => (
               <div
                 key={index}
-                className="border rounded-md p-3 bg-muted min-w-[33vh] shrink-0"
+                className={`border rounded-md p-3 bg-muted min-w-[33vh] shrink-0 ${
+                  block?.coinbase?.to === publicKey
+                    ? "border-green-500"
+                    : "border-orange-500"
+                }`}
               >
-                {block.coinbase.to === publicKey ? "Our " : `null`}
-                <br />
-                {[publicKey.slice(0, 4)]}
                 <div className="space-y-3">
                   <p className="flex items-center gap-2">
                     Block:

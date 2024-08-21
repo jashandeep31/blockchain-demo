@@ -7,6 +7,7 @@ import ThemeProvider from "./providers/theme-provider";
 import Home from "./pages/home";
 import { Toaster } from "sonner";
 import Account from "./pages/account";
+import Navbar from "./components/navbar";
 
 const router = createBrowserRouter([
   {
@@ -26,6 +27,7 @@ const router = createBrowserRouter([
 createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <ThemeProvider>
+      <Navbar />
       <Toaster richColors />
       <RouterProvider router={router} />
     </ThemeProvider>
