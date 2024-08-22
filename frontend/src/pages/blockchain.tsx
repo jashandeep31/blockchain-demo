@@ -191,7 +191,13 @@ const Blockchain = () => {
 
   return (
     <div className="container md:mt-12 mt-6">
-      <h1 className="text-lg font-bold">Live Blockchain</h1>
+      <h1 className="text-lg font-bold flex items-center gap-2">
+        <span className="relative flex h-2 w-2">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+        </span>{" "}
+        Live Blockchain
+      </h1>
 
       <ul className="space-y-3 text-muted-foreground list-disc mt-4 ml-4">
         <li>

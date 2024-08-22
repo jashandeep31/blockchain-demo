@@ -11,6 +11,7 @@ import bs58 from "bs58";
 import { toast } from "sonner";
 import WalletCard from "@/components/walletCard";
 import SendMoneyDialog from "@/components/sendMoneyDialog";
+import { Eye, EyeOff, Trash2 } from "lucide-react";
 // import WalletCard from "@/components/walletCard";
 const Home = () => {
   const [walletSeed, setWalletSeed] = useState<null | {
@@ -23,7 +24,9 @@ const Home = () => {
       public: string;
     }[]
   >([]);
-
+  const [seedInputType, setSeedInputType] = useState<"password" | "text">(
+    "password"
+  );
   const [SendMoneyDialogState, setSendMoneyDialogState] =
     useState<boolean>(false);
   useEffect(() => {
@@ -89,10 +92,23 @@ const Home = () => {
       />
       <p>By Clicking Create button create your phrase</p>
       <div className="mt-3 flex gap-2">
-        <Input value={walletSeed?.phrase} className="" />
+        <Input type={seedInputType} value={walletSeed?.phrase} className="" />
+        <button
+          onClick={() => {
+            setSeedInputType((prevType) =>
+              prevType === "password" ? "text" : "password"
+            );
+          }}
+        >
+          {seedInputType === "password" ? (
+            <EyeOff size={16} />
+          ) : (
+            <Eye size={16} />
+          )}
+        </button>
         <Button onClick={createSeed}>Create Phrase</Button>
       </div>
-      <div className="mt-6 space-x-4">
+      <div className="mt-6 flex gap-4 items-center flex-wrap">
         <Button onClick={createWallet} variant={"outline"}>
           Add Wallet
         </Button>
@@ -108,7 +124,7 @@ const Home = () => {
           }}
           variant={"destructive"}
         >
-          Delete
+          <Trash2 size={16} />
         </Button>
       </div>
       <div className="mt-12">

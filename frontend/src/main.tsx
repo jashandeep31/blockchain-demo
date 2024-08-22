@@ -27,9 +27,18 @@ const router = createBrowserRouter([
 createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <ThemeProvider>
-      <Navbar />
       <Toaster richColors />
-      <RouterProvider router={router} />
+      <div className="flex flex-col min-h-screen">
+        <Navbar />
+        <div className="flex-1 ">
+          <RouterProvider router={router} />
+        </div>
+        <footer className="py-3 border-t mt-12">
+          <div className="container">
+            <a href="https://x.com/Jashandeep31">@jashandeep31</a>
+          </div>
+        </footer>
+      </div>
     </ThemeProvider>
   </React.StrictMode>
 );

@@ -93,7 +93,7 @@ const Account = () => {
   const getAirDrop = async () => {
     const toastId = toast.loading("Requesting airdrop takes 2min", {
       description:
-        "Sometime its fails due to sol net so you can use sol faucet to do so.",
+        "Sometime its fails when miner is busy. So please re-send request",
     });
     try {
       const publicKey = pathname.replace("/", "");
@@ -118,7 +118,7 @@ const Account = () => {
     } catch (error) {
       toast.error("Something went wrong in airdrop", {
         description:
-          "Sometime its fails due to sol net so you can use sol faucet to do so.",
+          "Sometime its fails when miner is busy. So please re-send request",
         id: toastId,
       });
     }
@@ -137,7 +137,9 @@ const Account = () => {
       {" "}
       <div className="container md:mt-12 mt-6">
         <h1 className="md:text-2xl text-lg font-bold">Your Explorer</h1>
-        <h2 className="text-lg font-bold mt-3 ">Public Key: {publicKey}</h2>
+        <h2 className="text-lg font-bold mt-3 ">
+          Public Key: {publicKey.slice(0, 4)}...
+        </h2>
         <p className="font-bold text-muted-foreground">
           Balance : {balance.status === "done" && balance.amount} COINS
         </p>

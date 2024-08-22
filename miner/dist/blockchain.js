@@ -112,10 +112,10 @@ export class Blockchain {
     async addBlock(newBlock) {
         const latestBlock = this.getLatestBlock();
         if (latestBlock.hash && latestBlock.transactions.length === 2) {
-            await this.putBlockToChain(newBlock, true);
+            this.putBlockToChain(newBlock, true);
         }
     }
-    async putBlockToChain(block, broadcast = false, requestAllowed = true) {
+    putBlockToChain(block, broadcast = false, requestAllowed = true) {
         const latestBlock = this.getLatestBlock();
         // If the latest block's hash matches the new block's previous hash
         if (latestBlock.hash === block.prev) {
@@ -148,7 +148,7 @@ export class Blockchain {
     // Validate and add a block from the network
     async validateAndAddBlock(data, requestAllowed = true) {
         const newBlock = new Block(data);
-        await this.putBlockToChain(newBlock, false, requestAllowed);
+        this.putBlockToChain(newBlock, false, requestAllowed);
     }
     getLatestBlock() {
         return this.chain[this.chain.length - 1];
@@ -181,7 +181,7 @@ export class Blockchain {
                 transactions.reverse();
                 for (const transaction of transactions) {
                     if (!seq) {
-                        seq = transaction.seq;
+                        seq = transaction.seq + 1;
                     }
                     if (!sendPreBalance) {
                         if (transaction.to === userTransaction.from) {
