@@ -109,7 +109,8 @@ const Blockchain = () => {
                   <p className="flex items-center gap-2">
                     At:
                     <span className="border rounded p-1 flex-1 block bg-background">
-                      {new Date(block.timestamp).toLocaleDateString()}
+                      {new Date(block.timestamp).toLocaleDateString()}{" "}
+                      {new Date(block.timestamp).toLocaleTimeString()}
                     </span>
                   </p>
                   <div>

@@ -91,7 +91,6 @@ export class Block {
 
   addTransaction(transaction: Transaction) {
     const newTransaction = new Transaction(transaction);
-    newTransaction.timestamp = Date.now();
     this.transactions.push(newTransaction);
   }
 

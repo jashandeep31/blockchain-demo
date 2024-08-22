@@ -45,7 +45,6 @@ export class Block {
     }
     addTransaction(transaction) {
         const newTransaction = new Transaction(transaction);
-        newTransaction.timestamp = Date.now();
         this.transactions.push(newTransaction);
     }
     calculateHash() {
