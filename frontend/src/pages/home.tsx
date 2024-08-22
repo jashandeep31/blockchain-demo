@@ -81,46 +81,57 @@ const Home = () => {
   }
 
   return (
-    <div>
-      {" "}
-      <div className="container md:mt-12 mt-6">
-        <SendMoneyDialog
-          state={SendMoneyDialogState}
-          wallets={wallets}
-          setState={setSendMoneyDialogState}
-        />
-        <p>By Clicking Create button create your phrase</p>
-        <div className="mt-3 flex gap-2">
-          <Input value={walletSeed?.phrase} className="" />
-          <Button onClick={createSeed}>Create Phrase</Button>
-        </div>
-        <div className="mt-6 space-x-4">
-          <Button onClick={createWallet} variant={"outline"}>
-            Add Wallet
+    <div className="container md:mt-12 mt-6">
+      <SendMoneyDialog
+        state={SendMoneyDialogState}
+        wallets={wallets}
+        setState={setSendMoneyDialogState}
+      />
+      <p>By Clicking Create button create your phrase</p>
+      <div className="mt-3 flex gap-2">
+        <Input value={walletSeed?.phrase} className="" />
+        <Button onClick={createSeed}>Create Phrase</Button>
+      </div>
+      <div className="mt-6 space-x-4">
+        <Button onClick={createWallet} variant={"outline"}>
+          Add Wallet
+        </Button>
+        {wallets.length >= 1 && (
+          <Button onClick={() => setSendMoneyDialogState(true)}>
+            Send Money
           </Button>
-          {wallets.length >= 1 && (
-            <Button onClick={() => setSendMoneyDialogState(true)}>
-              Send Money
-            </Button>
-          )}
-          <Button
-            onClick={() => {
-              localStorage.clear();
-              window.location.reload();
-            }}
-            variant={"destructive"}
-          >
-            Delete
-          </Button>
+        )}
+        <Button
+          onClick={() => {
+            localStorage.clear();
+            window.location.reload();
+          }}
+          variant={"destructive"}
+        >
+          Delete
+        </Button>
+      </div>
+      <div className="mt-12">
+        <h2 className="text-lg md:text-xl font-bold">Wallets</h2>
+        <div className="grid mt-3 lg:grid-cols-4 md:grid-cols-2 gap-6">
+          {wallets.map((wallet, index) => (
+            <WalletCard wallet={wallet} index={index} key={index} />
+          ))}
         </div>
-        <div className="mt-12">
-          <h2 className="text-lg md:text-xl font-bold">Wallets</h2>
-          <div className="grid mt-3 lg:grid-cols-4 md:grid-cols-2 gap-6">
-            {wallets.map((wallet, index) => (
-              <WalletCard wallet={wallet} index={index} key={index} />
-            ))}
-          </div>
-        </div>
+      </div>
+      <div className="mt-20">
+        <ul className="space-y-3 text-muted-foreground list-disc">
+          <li>
+            Coinbase part in completely useless till now if 2 miners did
+            something at same time then it creates problem
+          </li>
+          <li>
+            You can link your local miners with the project for that you need to
+            use https://smee.io/. Docs will be provided by tonight or tomorrow
+            early in the morning
+          </li>
+          <li>If anyone wants to implement UTXo he/she can.</li>
+        </ul>
       </div>
     </div>
   );

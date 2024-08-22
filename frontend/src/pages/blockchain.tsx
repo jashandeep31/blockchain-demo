@@ -192,6 +192,27 @@ const Blockchain = () => {
   return (
     <div className="container md:mt-12 mt-6">
       <h1 className="text-lg font-bold">Live Blockchain</h1>
+
+      <ul className="space-y-3 text-muted-foreground list-disc mt-4 ml-4">
+        <li>
+          Coinbase part in completely useless till now if 2 miners did something
+          at same time then it creates problem
+        </li>
+        <li>
+          <span className="border rounded p-1 border-green-500 text-green-500">
+            Green
+          </span>{" "}
+          border means miner had mined that block first and all blockchain have
+          that block
+        </li>
+        <li>
+          <span className="border rounded p-1 border-orange-500 text-orange-500">
+            Orange
+          </span>{" "}
+          border means that miner took this block from another miner because may
+          other had done fast or the miner is new.
+        </li>
+      </ul>
       <div className="grid gap-12 mt-12">
         {blockchains.map((item, index: number) => (
           <div key={index}>
