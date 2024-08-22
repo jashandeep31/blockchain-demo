@@ -155,6 +155,7 @@ export class Blockchain {
     validateTransaction(userTransaction) {
         try {
             const blocks = [...this.chain];
+            userTransaction.amount = Math.floor(userTransaction.amount);
             blocks.reverse();
             const isCorrectSignature = nacl.sign.detached.verify(decodeUTF8(JSON.stringify({
                 amount: userTransaction.amount,
